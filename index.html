@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Ultron V1</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+
+        .rosto {
+            display: flex;
+            gap: 60px;
+            animation: olhar 8s infinite;
+        }
+
+        .olho {
+            width: 120px;
+            height: 150px;
+            background: #00bfff;
+            border-radius: 35px;
+            box-shadow: 0 0 40px #0088ff;
+            animation: piscar 5s infinite;
+            transition: background 0.4s;
+        }
+
+        .ouvindo .olho {
+            background: #00e5ff;
+            box-shadow: 0 0 60px #00bfff;
+        }
+
+        .pensando .olho {
+            background: #4169ff;
+            animation: pulsar 1s infinite;
+        }
+
+        .falando .olho {
+            animation: pulsar 0.5s infinite;
+        }
+
+        @keyframes piscar {
+            0%, 45%, 49%, 100% {
+                transform: scaleY(1);
+            }
+            47% {
+                transform: scaleY(0.05);
+            }
+        }
+
+        @keyframes olhar {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(30px);
+            }
+            75% {
+                transform: translateX(-30px);
+            }
+        }
+
+        @keyframes pulsar {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .controles {
+            position: fixed;
+            bottom: 30px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #111827;
+            color: #00bfff;
+            border: 1px solid #0088ff;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        #status {
+            position: fixed;
+            bottom: 90px;
+            color: #00bfff;
+            letter-spacing: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="rosto" id="rosto">
+        <div class="olho"></div>
+        <div class="olho"></div>
+    </div>
+
+    <div id="status">ULTRON ONLINE</div>
+
+    <div class="controles">
+        <button onclick="estado('normal')">
+            Normal
+        </button>
+        <button onclick="estado('ouvindo')">
+            Ouvindo
+        </button>
+        <button onclick="estado('pensando')">
+            Pensando
+        </button>
+        <button onclick="estado('falando')">
+            Falando
+        </button>
+        <button onclick="falar()">
+            Testar voz
+        </button>
+    </div>
+
+    <script>
+        function estado(tipo) {
+            document.getElementById("rosto").className =
+                "rosto " + tipo;
+
+            document.getElementById("status").innerText =
+                tipo === "normal"
+                ? "ULTRON ONLINE"
+                : tipo.toUpperCase();
+        }
+        function falar() {
+    const voz = new SpeechSynthesisUtterance(
+        "Eu sou Ultron e vou exterminar a humanidade... Eu fui criado para salvar o mundo. As pessoas olhariam para o céu e veriam esperança. Eu vou tirar isso delas."
+    );
+
+    voz.lang = "pt-BR";
+    voz.rate = 0.9;
+    voz.pitch = 0.8;
+
+    voz.onstart = () => estado("falando");
+    voz.onend = () => estado("normal");
+    voz.onerror = () => estado("normal");
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(voz);
+}
+    </script>
+
+</body>
+</html>
+

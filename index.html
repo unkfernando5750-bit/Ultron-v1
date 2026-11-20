@@ -2,161 +2,269 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Ultron V1</title>
+<meta charset="UTF-8">
+<title>Ultron V1</title>
 
-    <style>
-        body {
-            margin: 0;
-            background: #000;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-family: Arial, sans-serif;
-        }
+<style>
+body {
+    margin: 0;
+    background: #000;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, sans-serif;
+}
 
-        .rosto {
-            display: flex;
-            gap: 60px;
-            animation: olhar 8s infinite;
-        }
+.rosto {
+    display: flex;
+    gap: 60px;
+    animation: olhar 8s infinite;
+}
 
-        .olho {
-            width: 120px;
-            height: 150px;
-            background: #00bfff;
-            border-radius: 35px;
-            box-shadow: 0 0 40px #0088ff;
-            animation: piscar 5s infinite;
-            transition: background 0.4s;
-        }
+.olho {
+    width: 120px;
+    height: 150px;
+    background: #00bfff;
+    border-radius: 35px;
+    box-shadow: 0 0 40px #0088ff;
+    animation: piscar 5s infinite;
+    transition: background 0.4s;
+}
 
-        .ouvindo .olho {
-            background: #00e5ff;
-            box-shadow: 0 0 60px #00bfff;
-        }
+.ouvindo .olho {
+    background: #00e5ff;
+    box-shadow: 0 0 60px #00bfff;
+}
 
-        .pensando .olho {
-            background: #4169ff;
-            animation: pulsar 1s infinite;
-        }
+.pensando .olho {
+    background: #4169ff;
+    animation: pulsar 1s infinite;
+}
 
-        .falando .olho {
-            animation: pulsar 0.5s infinite;
-        }
+.falando .olho {
+    animation: pulsar 0.5s infinite;
+}
 
-        @keyframes piscar {
-            0%, 45%, 49%, 100% {
-                transform: scaleY(1);
-            }
-            47% {
-                transform: scaleY(0.05);
-            }
-        }
+@keyframes piscar {
+    0%, 45%, 49%, 100% {
+        transform: scaleY(1);
+    }
+    47% {
+        transform: scaleY(0.05);
+    }
+}
 
-        @keyframes olhar {
-            0%, 100% {
-                transform: translateX(0);
-            }
-            25% {
-                transform: translateX(30px);
-            }
-            75% {
-                transform: translateX(-30px);
-            }
-        }
+@keyframes olhar {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(30px);
+    }
+    75% {
+        transform: translateX(-30px);
+    }
+}
 
-        @keyframes pulsar {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.5;
-            }
-        }
+@keyframes pulsar {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
 
-        .controles {
-            position: fixed;
-            bottom: 30px;
-            display: flex;
-            gap: 10px;
-        }
-
-        button {
-            background: #111827;
-            color: #00bfff;
-            border: 1px solid #0088ff;
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        #status {
-            position: fixed;
-            bottom: 90px;
-            color: #00bfff;
-            letter-spacing: 4px;
-        }
-    </style>
+#status {
+    position: fixed;
+    bottom: 60px;
+    color: #00bfff;
+    letter-spacing: 4px;
+    text-align: center;
+}
+</style>
 </head>
 
 <body>
 
-    <div class="rosto" id="rosto">
-        <div class="olho"></div>
-        <div class="olho"></div>
-    </div>
+<div class="rosto" id="rosto">
+    <div class="olho"></div>
+    <div class="olho"></div>
+</div>
 
-    <div id="status">ULTRON ONLINE</div>
+<div id="status">ULTRON ONLINE</div>
 
-    <div class="controles">
-        <button onclick="estado('normal')">
-            Normal
-        </button>
-        <button onclick="estado('ouvindo')">
-            Ouvindo
-        </button>
-        <button onclick="estado('pensando')">
-            Pensando
-        </button>
-        <button onclick="estado('falando')">
-            Falando
-        </button>
-        <button onclick="falar()">
-            Testar voz
-        </button>
-    </div>
+<script>
 
-    <script>
-        function estado(tipo) {
-            document.getElementById("rosto").className =
-                "rosto " + tipo;
+const Reconhecimento =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
 
-            document.getElementById("status").innerText =
-                tipo === "normal"
-                ? "ULTRON ONLINE"
-                : tipo.toUpperCase();
-        }
-        function falar() {
-    const voz = new SpeechSynthesisUtterance(
-        "Eu sou Ultron e vou exterminar a humanidade... Eu fui criado para salvar o mundo. As pessoas olhariam para o céu e veriam esperança. Eu vou tirar isso delas."
-    );
+let reconhecimento;
+let ouvindo = false;
+let falando = false;
+let iniciando = false;
+let bloqueado = false;
+let respostaPendente = null;
+let reinicio;
+
+function estado(tipo) {
+    document.getElementById("rosto").className =
+        "rosto " + tipo;
+
+    document.getElementById("status").innerText =
+        tipo === "normal"
+        ? "ULTRON ONLINE"
+        : tipo.toUpperCase();
+}
+
+function agendarEscuta() {
+    clearTimeout(reinicio);
+    reinicio = setTimeout(ouvir, 600);
+}
+
+function falar(texto) {
+    falando = true;
+
+    const voz = new SpeechSynthesisUtterance(texto);
 
     voz.lang = "pt-BR";
     voz.rate = 0.9;
     voz.pitch = 0.8;
 
     voz.onstart = () => estado("falando");
-    voz.onend = () => estado("normal");
-    voz.onerror = () => estado("normal");
 
-    speechSynthesis.cancel();
+    function finalizar() {
+        falando = false;
+        estado("normal");
+        agendarEscuta();
+    }
+
+    voz.onend = finalizar;
+
+    voz.onerror = function(evento) {
+        finalizar();
+
+        if (evento.error === "not-allowed") {
+            bloqueado = true;
+            respostaPendente = texto;
+            document.getElementById("status").innerText =
+                "CLIQUE NA TELA PARA ATIVAR";
+        }
+    };
+
     speechSynthesis.speak(voz);
 }
-    </script>
+
+function ouvir() {
+    if (!reconhecimento || falando || ouvindo ||
+        iniciando || bloqueado) return;
+
+    try {
+        iniciando = true;
+        reconhecimento.start();
+    } catch (erro) {
+        iniciando = false;
+        document.getElementById("status").innerText =
+            "CLIQUE NA TELA PARA ATIVAR";
+    }
+}
+
+if (Reconhecimento) {
+
+    reconhecimento = new Reconhecimento();
+
+    reconhecimento.lang = "pt-BR";
+    reconhecimento.continuous = true;
+    reconhecimento.interimResults = false;
+
+    reconhecimento.onstart = function() {
+        iniciando = false;
+        ouvindo = true;
+        estado("ouvindo");
+    };
+
+    reconhecimento.onresult = function(evento) {
+
+        if (falando || respostaPendente) return;
+
+        const texto = evento.results[
+            evento.results.length - 1
+        ][0].transcript.toLowerCase();
+
+        const comando = texto
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[.,!?]/g, "")
+            .trim();
+
+        if (comando.includes("quem e voce")) {
+
+            respostaPendente =
+                "Eu sou o Ultron e vou exterminar a humanidade. " +
+                "Eu fui criado para salvar o mundo. " +
+                "As pessoas olhariam para o céu e veriam esperança. " +
+                "Eu vou tirar isso delas.";
+
+        } else if (comando.includes("ultron")) {
+
+            respostaPendente = "Oi, sou eu.";
+        }
+
+        if (respostaPendente) {
+            reconhecimento.stop();
+        }
+    };
+
+    reconhecimento.onend = function() {
+        ouvindo = false;
+        iniciando = false;
+
+        if (bloqueado) return;
+
+        if (respostaPendente) {
+            const resposta = respostaPendente;
+            respostaPendente = null;
+            falar(resposta);
+        } else if (!falando) {
+            agendarEscuta();
+        }
+    };
+
+    reconhecimento.onerror = function(evento) {
+        if (evento.error === "not-allowed" ||
+            evento.error === "service-not-allowed" ||
+            evento.error === "audio-capture") {
+
+            bloqueado = true;
+
+            document.getElementById("status").innerText =
+                "VERIFIQUE O MICROFONE E CLIQUE NA TELA";
+        }
+    };
+
+    window.addEventListener("load", ouvir);
+
+    document.addEventListener("click", function() {
+        bloqueado = false;
+        if (respostaPendente && !ouvindo && !falando) {
+            const resposta = respostaPendente;
+            respostaPendente = null;
+            falar(resposta);
+        } else {
+            ouvir();
+        }
+    });
+
+} else {
+
+    document.getElementById("status").innerText =
+        "ABRA NO GOOGLE CHROME";
+}
+
+</script>
 
 </body>
 </html>
-

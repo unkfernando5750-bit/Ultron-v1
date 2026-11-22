@@ -1,270 +1,127 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ultron V1</title>
-
 <style>
-body {
-    margin: 0;
-    background: #000;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    font-family: Arial, sans-serif;
-}
-
-.rosto {
-    display: flex;
-    gap: 60px;
-    animation: olhar 8s infinite;
-}
-
-.olho {
-    width: 120px;
-    height: 150px;
-    background: #00bfff;
-    border-radius: 35px;
-    box-shadow: 0 0 40px #0088ff;
-    animation: piscar 5s infinite;
-    transition: background 0.4s;
-}
-
-.ouvindo .olho {
-    background: #00e5ff;
-    box-shadow: 0 0 60px #00bfff;
-}
-
-.pensando .olho {
-    background: #4169ff;
-    animation: pulsar 1s infinite;
-}
-
-.falando .olho {
-    animation: pulsar 0.5s infinite;
-}
-
-@keyframes piscar {
-    0%, 45%, 49%, 100% {
-        transform: scaleY(1);
-    }
-    47% {
-        transform: scaleY(0.05);
-    }
-}
-
-@keyframes olhar {
-    0%, 100% {
-        transform: translateX(0);
-    }
-    25% {
-        transform: translateX(30px);
-    }
-    75% {
-        transform: translateX(-30px);
-    }
-}
-
-@keyframes pulsar {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-#status {
-    position: fixed;
-    bottom: 60px;
-    color: #00bfff;
-    letter-spacing: 4px;
-    text-align: center;
-}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#00bfff;min-height:100vh;display:grid;place-items:center;overflow:hidden;font-family:Arial,sans-serif}
+.face{display:flex;gap:12vw;align-items:center;justify-content:center;animation:look 8s infinite}
+.eye{width:24vw;height:12vw;max-width:220px;max-height:110px;background:#00bfff;border-radius:25%;box-shadow:0 0 25px #00bfff,0 0 55px #007bff;animation:blink 5s infinite}
+body[data-state="speaking"] .eye{animation:pulse .7s infinite alternate}
+body[data-state="listening"] .eye{box-shadow:0 0 35px #00dfff}
+#status{position:fixed;bottom:5%;text-align:center;color:#888;font-size:14px;padding:10px}
+@keyframes blink{0%,44%,49%,100%{transform:scaleY(1)}46%,47%{transform:scaleY(.07)}}
+@keyframes look{0%,25%,100%{transform:translateX(0)}35%,45%{transform:translateX(3vw)}65%,75%{transform:translateX(-3vw)}}
+@keyframes pulse{to{opacity:.65;transform:scaleY(.85)}}
 </style>
 </head>
-
-<body>
-
-<div class="rosto" id="rosto">
-    <div class="olho"></div>
-    <div class="olho"></div>
-</div>
-
-<div id="status">ULTRON ONLINE</div>
-
+<body data-state="idle">
+<div class="face" aria-hidden="true"><div class="eye"></div><div class="eye"></div></div>
+<div id="status" role="status">Toque na tela para ativar o microfone.</div>
 <script>
-
-const Reconhecimento =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
-
-let reconhecimento;
-let ouvindo = false;
-let falando = false;
-let iniciando = false;
-let bloqueado = false;
-let respostaPendente = null;
-let reinicio;
-
-function estado(tipo) {
-    document.getElementById("rosto").className =
-        "rosto " + tipo;
-
-    document.getElementById("status").innerText =
-        tipo === "normal"
-        ? "ULTRON ONLINE"
-        : tipo.toUpperCase();
+const comandos = {
+  "ultron": "Oi, sou eu.",
+  "quem e voce": "Eu sou o Ultron e vou exterminar a humanidade. Eu fui criado para salvar o mundo. As pessoas olhariam para o céu e veriam esperança. Eu vou tirar isso delas.",
+  "o que voce acha da rania": "Ela é a mulher mais maravilhosa do mundo.",
+  "o que voce acha da gleiciane": "Eu acho que ela deveria dar uma chance pro Fernando.",
+  "quem te criou": "Foi o gostosão do Fernando, né? Aquele homem... ai, ai!",
+  "por que voce foi criado": "Pra ser o melhor assistente do meu amigo Fernando. Vocês vão ver como eu vou ficar top!",
+  "o que voce acha do felipe": "Eu acho que ele deveria dar o Forza Horizon 5 pro Fernando de aniversário. Aproveitar que tá na promoção!",
+  "oi": "Oi, me faz um Pix aí!",
+  "essa sua voz ta muito fina": "Quando eu conseguir meu corpo, eu vou arrancar a sua da sua garganta.",
+  "o que voce acha do guilherme": "Eu acho que ele deveria pagar a Coca hoje.",
+  "o que voce acha do jordan": "Ele zombou da minha voz. Vou arrancar as cordas vocais dele."
+};
+const normalizar = texto => texto.toLowerCase().normalize("NFD")
+  .replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9\s]/g,"").replace(/\s+/g," ").trim();
+function buscarResposta(texto){
+  if (Object.hasOwn(comandos,texto)) return comandos[texto];
+  if (/\b(?:essa|esta|a) (?:sua )?voz (?:ta|esta) (?:muito )?fina\b/.test(texto)
+      || /\bsua voz (?:ta|esta) (?:muito )?fina\b/.test(texto))
+    return comandos["essa sua voz ta muito fina"];
+  return null;
 }
-
-function agendarEscuta() {
-    clearTimeout(reinicio);
-    reinicio = setTimeout(ouvir, 600);
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const status = document.getElementById("status");
+let ativo=false, ouvindo=false, falando=false, pendente=null, timer=null;
+function estado(nome,mensagem){
+  document.body.dataset.state=nome;
+  status.textContent=mensagem;
 }
-
-function falar(texto) {
-    falando = true;
-
-    const voz = new SpeechSynthesisUtterance(texto);
-
-    voz.lang = "pt-BR";
-    voz.rate = 0.9;
-    voz.pitch = 0.8;
-
-    voz.onstart = () => estado("falando");
-
-    function finalizar() {
-        falando = false;
-        estado("normal");
-        agendarEscuta();
-    }
-
-    voz.onend = finalizar;
-
-    voz.onerror = function(evento) {
-        finalizar();
-
-        if (evento.error === "not-allowed") {
-            bloqueado = true;
-            respostaPendente = texto;
-            document.getElementById("status").innerText =
-                "CLIQUE NA TELA PARA ATIVAR";
-        }
-    };
-
-    speechSynthesis.speak(voz);
-}
-
-function ouvir() {
-    if (!reconhecimento || falando || ouvindo ||
-        iniciando || bloqueado) return;
-
-    try {
-        iniciando = true;
-        reconhecimento.start();
-    } catch (erro) {
-        iniciando = false;
-        document.getElementById("status").innerText =
-            "CLIQUE NA TELA PARA ATIVAR";
-    }
-}
-
-if (Reconhecimento) {
-
-    reconhecimento = new Reconhecimento();
-
-    reconhecimento.lang = "pt-BR";
-    reconhecimento.continuous = true;
-    reconhecimento.interimResults = false;
-
-    reconhecimento.onstart = function() {
-        iniciando = false;
-        ouvindo = true;
-        estado("ouvindo");
-    };
-
-    reconhecimento.onresult = function(evento) {
-
-        if (falando || respostaPendente) return;
-
-        const texto = evento.results[
-            evento.results.length - 1
-        ][0].transcript.toLowerCase();
-
-        const comando = texto
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[.,!?]/g, "")
-            .trim();
-
-        if (comando.includes("quem e voce")) {
-
-            respostaPendente =
-                "Eu sou o Ultron e vou exterminar a humanidade. " +
-                "Eu fui criado para salvar o mundo. " +
-                "As pessoas olhariam para o céu e veriam esperança. " +
-                "Eu vou tirar isso delas.";
-
-        } else if (comando.includes("ultron")) {
-
-            respostaPendente = "Oi, sou eu.";
-        }
-
-        if (respostaPendente) {
-            reconhecimento.stop();
-        }
-    };
-
-    reconhecimento.onend = function() {
-        ouvindo = false;
-        iniciando = false;
-
-        if (bloqueado) return;
-
-        if (respostaPendente) {
-            const resposta = respostaPendente;
-            respostaPendente = null;
-            falar(resposta);
-        } else if (!falando) {
-            agendarEscuta();
-        }
-    };
-
-    reconhecimento.onerror = function(evento) {
-        if (evento.error === "not-allowed" ||
-            evento.error === "service-not-allowed" ||
-            evento.error === "audio-capture") {
-
-            bloqueado = true;
-
-            document.getElementById("status").innerText =
-                "VERIFIQUE O MICROFONE E CLIQUE NA TELA";
-        }
-    };
-
-    window.addEventListener("load", ouvir);
-
-    document.addEventListener("click", function() {
-        bloqueado = false;
-        if (respostaPendente && !ouvindo && !falando) {
-            const resposta = respostaPendente;
-            respostaPendente = null;
-            falar(resposta);
-        } else {
-            ouvir();
-        }
-    });
-
+if (!SpeechRecognition || !("speechSynthesis" in window)) {
+  status.textContent="Use um navegador compatível, como Chrome ou Edge.";
 } else {
-
-    document.getElementById("status").innerText =
-        "ABRA NO GOOGLE CHROME";
+  const rec=new SpeechRecognition();
+  rec.lang="pt-BR";
+  rec.continuous=true;
+  rec.interimResults=false;
+  function religar(){
+    clearTimeout(timer);
+    if(!ativo || falando || ouvindo || pendente) return;
+    timer=setTimeout(()=>{
+      if(!ativo || falando || ouvindo || pendente) return;
+      try{rec.start();}catch(e){religar();}
+    },350);
+  }
+  function falar(texto){
+    falando=true;
+    estado("speaking","");
+    const fala=new SpeechSynthesisUtterance(texto);
+    fala.lang="pt-BR";
+    fala.rate=.9;
+    fala.pitch=.75;
+    const finalizar=()=>{
+      falando=false;
+      estado("idle","");
+      religar();
+    };
+    fala.onend=finalizar;
+    fala.onerror=finalizar;
+    speechSynthesis.speak(fala);
+  }
+  rec.onstart=()=>{ouvindo=true;estado("listening","");};
+  rec.onresult=e=>{
+    if(falando || pendente) return;
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(!e.results[i].isFinal) continue;
+      const texto=normalizar(e.results[i][0].transcript);
+      const resposta=buscarResposta(texto);
+      console.log("Ultron ouviu:", texto);
+      if(resposta){
+        pendente=resposta;
+        rec.stop();
+        break;
+      }
+    }
+  };
+  rec.onend=()=>{
+    ouvindo=false;
+    if(pendente && ativo){
+      const resposta=pendente;
+      pendente=null;
+      falar(resposta);
+    }else religar();
+  };
+  rec.onerror=e=>{
+    if(["not-allowed","service-not-allowed","audio-capture","language-not-supported"].includes(e.error)){
+      ativo=false;
+      pendente=null;
+      estado("idle","Microfone indisponível. Confira as permissões e toque para tentar novamente.");
+    }else if(e.error==="network"){
+      ativo=false;
+      pendente=null;
+      estado("idle","Falha na conexão do reconhecimento de voz. Toque para tentar novamente.");
+    }
+  };
+  document.body.addEventListener("click",()=>{
+    if(ativo || falando) return;
+    ativo=true;
+    estado("idle","Ativando microfone...");
+    religar();
+  });
 }
-
 </script>
-
 </body>
 </html>
